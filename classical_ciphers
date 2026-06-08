@@ -1,0 +1,91 @@
+import sys
+
+# Fig 1: Caesar Cipher Implementation
+def caesar_cipher(text: str, shift: int, encrypt: bool = True) -> str:
+    if not encrypt:
+        shift = -shift
+        
+    result = []
+    for ch in text:
+        if ch.isalpha():
+            base = ord('a') if ch.islower() else ord('A')
+            # Python's modulo operator cleanly handles negative numbers
+            new_char = chr((ord(ch) - base + shift) % 26 + base)
+            result.append(new_char)
+        else:
+            result.append(ch)
+            
+    return "".join(result)
+
+# Fig 2: Vigenere Cipher Encryption Process
+def vigenere_cipher(text: str, key: str, encrypt: bool = True) -> str:
+    key_len = len(key)
+    result = []
+    j = 0
+    
+    for ch in text:
+        if ch.isalpha():
+            base = ord('a') if ch.islower() else ord('A')
+            key_char = key[j % key_len]
+            key_base = ord('a') if key_char.islower() else ord('A')
+            
+            shift = ord(key_char) - key_base
+            if not encrypt:
+                shift = -shift
+                
+            new_char = chr((ord(ch) - base + shift) % 26 + base)
+            result.append(new_char)
+            j += 1
+        else:
+            result.append(ch)
+            
+    return "".join(result)
+
+def main():
+    print("--- Classical Cryptography Testing Interface ---")
+    print("1. Test Caesar Cipher")
+    print("2. Test Vigenere Cipher")
+    
+    try:
+        choice = int(input("Select an option: "))
+    except ValueError:
+        print("Invalid input. Security protocol aborted.")
+        sys.exit(1)
+        
+    if choice not in (1, 2):
+        print("Invalid input. Security protocol aborted.")
+        sys.exit(1)
+
+    text = input("Enter text: ")
+
+    if choice == 1:
+        try:
+            shift = int(input("Enter shift key (integer): "))
+        except ValueError:
+            print("Invalid shift value. Aborting.")
+            sys.exit(1)
+            
+        # Encrypt
+        encrypted = caesar_cipher(text, shift, encrypt=True)
+        print(f"\n[ENCRYPTED]: {encrypted}")
+        
+        # Decrypt
+        decrypted = caesar_cipher(encrypted, shift, encrypt=False)
+        print(f"[DECRYPTED]: {decrypted}")
+        
+    elif choice == 2:
+        key_str = input("Enter keyword (letters only): ")
+        
+        if not key_str.isalpha():
+            print("Warning: Keyword contains non-alphabetic characters.")
+            
+        # Encrypt
+        encrypted = vigenere_cipher(text, key_str, encrypt=True)
+        print(f"\n[ENCRYPTED]: {encrypted}")
+        
+        # Decrypt
+        decrypted = vigenere_cipher(encrypted, key_str, encrypt=False)
+        print(f"[DECRYPTED]: {decrypted}")
+
+if __name__ == "__main__":
+    main()
