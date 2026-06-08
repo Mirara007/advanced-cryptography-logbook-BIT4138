@@ -1,0 +1,93 @@
+import os
+import time
+import sys
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import padding
+
+# Fig 3: File Encryption Demonstration
+def encrypt_file(in_file: str, out_file: str, key: bytes, iv: bytes) -> float:
+    # Initialize AES-256-CBC
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
+    encryptor = cipher.encryptor()
+    
+    # AES requires PKCS7 padding to ensure data is a multiple of the block size (128 bits / 16 bytes)
+    padder = padding.PKCS7(algorithms.AES.block_size).padder()
+
+    start_time = time.perf_counter()
+
+    with open(in_file, "rb") as ifp, open(out_file, "wb") as ofp:
+        while True:
+            # Read in 1024-byte chunks
+            in_buf = ifp.read(1024)
+            if not in_buf:
+                break
+            
+            # Pad the chunk, then encrypt the padded chunk
+            padded_chunk = padder.update(in_buf)
+            ofp.write(encryptor.update(padded_chunk))
+            
+        # Finalize padding and encryption to handle the last block
+        ofp.write(encryptor.update(padder.finalize()))
+        ofp.write(encryptor.finalize())
+
+    end_time = time.perf_counter()
+    return end_time - start_time
+
+# Fig 4: Decryption Results
+def decrypt_file(in_file: str, out_file: str, key: bytes, iv: bytes) -> float:
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
+    decryptor = cipher.decryptor()
+    unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
+
+    start_time = time.perf_counter()
+
+    with open(in_file, "rb") as ifp, open(out_file, "wb") as ofp:
+        while True:
+            in_buf = ifp.read(1024)
+            if not in_buf:
+                break
+            
+            # Decrypt the chunk, then unpad it
+            decrypted_chunk = decryptor.update(in_buf)
+            ofp.write(unpadder.update(decrypted_chunk))
+            
+        # Finalize decryption and unpadding
+        ofp.write(unpadder.update(decryptor.finalize()))
+        ofp.write(unpadder.finalize())
+
+    end_time = time.perf_counter()
+    return end_time - start_time
+
+def main():
+    print("--- Week 4: AES File Encryption & Performance ---")
+
+    # Fig 2: Key Generation Process
+    # os.urandom is the standard Python equivalent to OpenSSL's RAND_bytes
+    key = os.urandom(32)  # 256 bits = 32 bytes
+    iv = os.urandom(16)   # AES block size is always 128 bits = 16 bytes
+    print("[+] Secure 256-bit AES Key and IV Generated via os.urandom.")
+
+    # Create a dummy file to encrypt
+    with open("secret.txt", "w", encoding="utf-8") as fp:
+        for _ in range(50000):
+            fp.write("MKU Cryptography Padding Data... ")
+
+    # Fig 5: AES Performance Testing
+    print("[+] Encrypting 'secret.txt' to 'encrypted.bin'...")
+    try:
+        enc_time = encrypt_file("secret.txt", "encrypted.bin", key, iv)
+        print(f"    -> Encryption Time: {enc_time:.6f} seconds")
+    except Exception as e:
+        print(f"Encryption failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    print("[+] Decrypting 'encrypted.bin' to 'decrypted.txt'...")
+    try:
+        dec_time = decrypt_file("encrypted.bin", "decrypted.txt", key, iv)
+        print(f"    -> Decryption Time: {dec_time:.6f} seconds")
+    except Exception as e:
+        print(f"Decryption failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
