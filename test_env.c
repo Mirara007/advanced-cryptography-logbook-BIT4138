@@ -1,8 +1,8 @@
-#include <stdio.h>
-#include <openssl/opensslv.h>
+import ssl
 
-int main() {
-    printf("Advanced Cryptography Environment Setup Successful!\n");
-    printf("Using %s on Kali Linux VM\n", OPENSSL_VERSION_TEXT);
-    return 0;
-}
+def main():
+    print("Advanced Cryptography Environment Setup Successful!")
+    print(f"Using {ssl.OPENSSL_VERSION} on Kali Linux VM")
+
+if __name__ == "__main__":
+    main()
