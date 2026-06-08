@@ -1,6 +1,6 @@
 import sys
 
-# Fig 1: LFSR Generator Implementation
+
 def lfsr_step(state: int) -> int:
     """16-bit LFSR with polynomial x^16 + x^14 + x^13 + x^11 + 1"""
     bit = ((state >> 0) ^ (state >> 2) ^ (state >> 3) ^ (state >> 5)) & 1
@@ -15,7 +15,7 @@ def generate_lfsr_sequence(seed: int, length: int) -> None:
         state = lfsr_step(state)
     print()
 
-# Fig 4: RC4 Stream Cipher Simulation (Key Scheduling Algorithm)
+
 def rc4_ksa(key: bytes) -> list:
     """Initializes and permutations the state array S based on the key."""
     S = list(range(256))
