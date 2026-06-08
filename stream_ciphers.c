@@ -1,94 +1,96 @@
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
+import sys
 
-// Fig 1: LFSR Generator Implementation
-unsigned int lfsr_step(unsigned int state) {
-    // 16-bit LFSR with polynomial x^16 + x^14 + x^13 + x^11 + 1
-    unsigned int bit = ((state >> 0) ^ (state >> 2) ^ (state >> 3) ^ (state >> 5)) & 1u;
-    return (state >> 1) | (bit << 15);
-}
+# Fig 1: LFSR Generator Implementation
+def lfsr_step(state: int) -> int:
+    """16-bit LFSR with polynomial x^16 + x^14 + x^13 + x^11 + 1"""
+    bit = ((state >> 0) ^ (state >> 2) ^ (state >> 3) ^ (state >> 5)) & 1
+    # Python handles integers dynamically, so we mask with 0xFFFF to force 16-bit overflow behavior
+    return ((state >> 1) | (bit << 15)) & 0xFFFF
 
-void generate_lfsr_sequence(unsigned int seed, int length) {
-    unsigned int state = seed;
-    printf("\n[LFSR Sequence]: ");
-    for (int i = 0; i < length; i++) {
-        printf("%d", state & 1);
-        state = lfsr_step(state);
-    }
-    printf("\n");
-}
+def generate_lfsr_sequence(seed: int, length: int) -> None:
+    state = seed & 0xFFFF
+    print("\n[LFSR Sequence]: ", end="")
+    for _ in range(length):
+        print(state & 1, end="")
+        state = lfsr_step(state)
+    print()
 
-// Fig 4: RC4 Stream Cipher Simulation (Key Scheduling Algorithm)
-void rc4_ksa(unsigned char *key, int key_len, unsigned char *S) {
-    int i, j = 0;
-    unsigned char temp;
-    for (i = 0; i < 256; i++) S[i] = i;
-    for (i = 0; i < 256; i++) {
-        j = (j + S[i] + key[i % key_len]) % 256;
-        temp = S[i]; S[i] = S[j]; S[j] = temp;
-    }
-}
-
-// RC4 Pseudo-Random Generation Algorithm & Encryption
-void rc4_prga(unsigned char *S, unsigned char *plaintext, unsigned char *ciphertext) {
-    int i = 0, j = 0, n = 0;
-    unsigned char temp, K;
-    while (plaintext[n] != '\0') {
-        i = (i + 1) % 256;
-        j = (j + S[i]) % 256;
-        temp = S[i]; S[i] = S[j]; S[j] = temp;
-        K = S[(S[i] + S[j]) % 256];
-        ciphertext[n] = plaintext[n] ^ K; 
-        n++;
-    }
-}
-
-void clearBuffer() { int c; while ((c = getchar()) != '\n' && c != EOF); }
-
-int main() {
-    int choice;
-    printf("--- Stream Cipher & Randomness Testing ---\n");
-    printf("1. Generate LFSR Pseudorandom Sequence\n");
-    printf("2. Test RC4 Stream Encryption\n");
-    printf("Select protocol: ");
+# Fig 4: RC4 Stream Cipher Simulation (Key Scheduling Algorithm)
+def rc4_ksa(key: bytes) -> list:
+    """Initializes and permutations the state array S based on the key."""
+    S = list(range(256))
+    j = 0
+    key_len = len(key)
     
-    if (scanf("%d", &choice) != 1 || (choice != 1 && choice != 2)) {
-        printf("Invalid input. Aborting.\n");
-        return 1;
-    }
-    clearBuffer();
+    for i in range(256):
+        j = (j + S[i] + key[i % key_len]) % 256
+        # Python allows inline variable swapping without a temporary variable
+        S[i], S[j] = S[j], S[i]
+        
+    return S
 
-    if (choice == 1) {
-        printf("Enter an initial integer seed: ");
-        unsigned int seed;
-        scanf("%u", &seed);
-        generate_lfsr_sequence(seed, 64); 
-    } else if (choice == 2) {
-        unsigned char key[256], plaintext[256], ciphertext[256], decrypted[256];
-        unsigned char S[256];
+# RC4 Pseudo-Random Generation Algorithm & Encryption/Decryption
+def rc4_prga(S: list, text: bytes) -> bytes:
+    """Generates the keystream and XORs it with the input text."""
+    i = 0
+    j = 0
+    output = bytearray()
+    
+    for byte in text:
+        i = (i + 1) % 256
+        j = (j + S[i]) % 256
+        S[i], S[j] = S[j], S[i]
         
-        printf("Enter RC4 Key: ");
-        fgets((char*)key, sizeof(key), stdin);
-        key[strcspn((char*)key, "\n")] = 0;
+        K = S[(S[i] + S[j]) % 256]
+        output.append(byte ^ K)
         
-        printf("Enter Text to Encrypt: ");
-        fgets((char*)plaintext, sizeof(plaintext), stdin);
-        plaintext[strcspn((char*)plaintext, "\n")] = 0;
+    return bytes(output)
 
-        // Encrypt
-        rc4_ksa(key, strlen((char*)key), S);
-        rc4_prga(S, plaintext, ciphertext);
+def main():
+    print("--- Stream Cipher & Randomness Testing ---")
+    print("1. Generate LFSR Pseudorandom Sequence")
+    print("2. Test RC4 Stream Encryption")
+    
+    try:
+        choice = int(input("Select protocol: "))
+    except ValueError:
+        print("Invalid input. Aborting.")
+        sys.exit(1)
         
-        printf("\n[ENCRYPTED HEX]: ");
-        for(int i = 0; i < strlen((char*)plaintext); i++) printf("%02X", ciphertext[i]);
+    if choice not in (1, 2):
+        print("Invalid input. Aborting.")
+        sys.exit(1)
+
+    if choice == 1:
+        try:
+            seed = int(input("Enter an initial integer seed: "))
+            generate_lfsr_sequence(seed, 64)
+        except ValueError:
+            print("Invalid seed input.")
+            
+    elif choice == 2:
+        key_input = input("Enter RC4 Key: ")
+        plaintext_input = input("Enter Text to Encrypt: ")
+
+        # Convert strings to bytes for cryptographic operations
+        key = key_input.encode('utf-8')
+        plaintext = plaintext_input.encode('utf-8')
+
+        # --- Encrypt ---
+        S = rc4_ksa(key)
+        ciphertext = rc4_prga(S, plaintext)
         
-        // Decrypt 
-        rc4_ksa(key, strlen((char*)key), S);
-        rc4_prga(S, ciphertext, decrypted);
-        decrypted[strlen((char*)plaintext)] = '\0';
+        # Print as uppercase hexadecimal
+        print(f"\n[ENCRYPTED HEX]: {ciphertext.hex().upper()}")
         
-        printf("\n\n[DECRYPTED TEXT]: %s\n", decrypted);
-    }
-    return 0;
-}
+        # --- Decrypt ---
+        # RC4 is symmetric; reset the state with KSA, then process ciphertext
+        S = rc4_ksa(key)
+        decrypted_bytes = rc4_prga(S, ciphertext)
+        
+        # Decode bytes back to string
+        decrypted = decrypted_bytes.decode('utf-8')
+        print(f"\n\n[DECRYPTED TEXT]: {decrypted}")
+
+if __name__ == "__main__":
+    main()
