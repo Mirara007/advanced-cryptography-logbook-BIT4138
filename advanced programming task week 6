@@ -1,0 +1,82 @@
+# advanced_spn.py
+import binascii
+
+# 1. Advanced 8-bit S-Box (First 16 values of the AES S-Box for demonstration)
+S_BOX_8BIT = {
+    0x00: 0x63, 0x01: 0x7c, 0x02: 0x77, 0x03: 0x7b, 0x04: 0xf2, 0x05: 0x6b, 0x06: 0x6f, 0x07: 0xc5,
+    0x08: 0x30, 0x09: 0x01, 0x0a: 0x67, 0x0b: 0x2b, 0x0c: 0xfe, 0x0d: 0xd7, 0x0e: 0xab, 0x0f: 0x76
+}
+
+# 2. 8-bit P-Box (Scrambles bits across the byte)
+P_BOX = [7, 0, 1, 5, 2, 6, 3, 4]
+
+def mix_key(byte_val, round_key):
+    """XORs the data with the round key."""
+    return byte_val ^ round_key
+
+def substitute(byte_val):
+    """Applies the 8-bit S-Box. Wraps values using modulo if outside the 16 defined above."""
+    return S_BOX_8BIT.get(byte_val % 16, byte_val ^ 0xAA) # Fallback XOR for values > 15 in this limited demo
+
+def permute(byte_val):
+    """Rearranges the 8 bits according to the P-Box."""
+    bits = [(byte_val >> i) & 1 for i in range(7, -1, -1)]
+    perm_byte = 0
+    for i in range(8):
+        perm_byte = (perm_byte << 1) | bits[P_BOX[i]]
+    return perm_byte
+
+def encrypt_block(byte_val, key, rounds=3):
+    """Executes the full Multi-Round SPN on a single byte."""
+    state = byte_val
+    for r in range(rounds):
+        # Generate a simple round key from the master key
+        round_key = (key + r) % 256 
+        state = mix_key(state, round_key)
+        state = substitute(state)
+        state = permute(state)
+    # Final key mixing (whitening)
+    return mix_key(state, (key + rounds) % 256)
+
+def encrypt_string(plaintext, key, rounds=3):
+    """Encrypts a full string."""
+    ciphertext = bytearray()
+    for char in plaintext:
+        ciphertext.append(encrypt_block(ord(char), key, rounds))
+    return ciphertext
+
+def calculate_avalanche():
+    """Demonstrates how a 1-bit change in plaintext alters the ciphertext."""
+    key = 0x4B
+    rounds = 4
+    
+    # Base Plaintext
+    pt1 = "Mirara007"
+    ct1 = encrypt_string(pt1, key, rounds)
+    
+    # Altered Plaintext (Changing the very first letter 'M' by exactly 1 bit)
+    # 'M' is 01001101. Let's change the last bit to make it 01001100 ('L')
+    pt2 = "Lirara007" 
+    ct2 = encrypt_string(pt2, key, rounds)
+    
+    # Calculate Hamming Distance
+    diff_bits = 0
+    total_bits = len(ct1) * 8
+    
+    for b1, b2 in zip(ct1, ct2):
+        xor_result = b1 ^ b2
+        diff_bits += bin(xor_result).count('1')
+        
+    avalanche_percentage = (diff_bits / total_bits) * 100
+    
+    print("--- Avalanche Effect Demonstration ---")
+    print(f"Plaintext 1 : {pt1}")
+    print(f"Ciphertext 1: {ct1.hex()}")
+    print(f"Plaintext 2 : {pt2} (1 bit flipped in first character)")
+    print(f"Ciphertext 2: {ct2.hex()}")
+    print(f"Total Bits  : {total_bits}")
+    print(f"Flipped Bits: {diff_bits}")
+    print(f"Avalanche % : {avalanche_percentage:.2f}%")
+
+if __name__ == "__main__":
+    calculate_avalanche()
