@@ -1,0 +1,99 @@
+# cryptanalysis_toolkit.py
+import collections
+
+def calculate_input_difference(hex_str1, hex_str2):
+    """
+    Computes the differential XOR difference between two hexadecimal inputs.
+    Returns the binary difference string and the Hamming weight (flipped bits).
+    """
+    val1 = int(hex_str1, 16)
+    val2 = int(hex_str2, 16)
+    
+    # Calculate XOR difference
+    xor_diff = val1 ^ val2
+    
+    # Format as binary string, padded to the max length of the inputs
+    bit_length = max(len(hex_str1), len(hex_str2)) * 4
+    binary_diff = f"{xor_diff:0{bit_length}b}"
+    
+    # Calculate Hamming Weight
+    hamming_weight = binary_diff.count('1')
+    
+    return binary_diff, hamming_weight
+
+def perform_frequency_analysis(text):
+    """
+    Calculates the frequency of each character in a given string.
+    Useful for breaking classical ciphers (e.g., Caesar, Vigenère).
+    """
+    # Remove spaces for accurate cryptographic analysis
+    clean_text = text.replace(" ", "").upper()
+    total_chars = len(clean_text)
+    
+    if total_chars == 0:
+        return []
+        
+    frequencies = collections.Counter(clean_text)
+    sorted_freqs = frequencies.most_common()
+    
+    results = []
+    for char, count in sorted_freqs:
+        percentage = (count / total_chars) * 100
+        results.append((char, count, percentage))
+        
+    return results
+
+def measure_statistical_bias(binary_string):
+    """
+    Measures the deviation of 1s and 0s from the ideal 50/50 distribution.
+    Used in evaluating stream ciphers and linear cryptanalysis.
+    """
+    total_bits = len(binary_string)
+    if total_bits == 0:
+        return 0, 0, 0.0
+        
+    count_ones = binary_string.count('1')
+    count_zeros = binary_string.count('0')
+    
+    # Calculate bias (deviation from 0.50)
+    bias = (count_ones / total_bits) - 0.5
+    
+    return count_zeros, count_ones, bias
+
+def main():
+    print("=== Mini Cryptanalysis Toolkit ===\n")
+    
+    # 1. Differential Cryptanalysis (Input Differences)
+    print("--- 1. Input Differences ---")
+    input1 = "A4B2"
+    input2 = "A4F2"
+    bin_diff, hamming = calculate_input_difference(input1, input2)
+    print(f"Input 1 (Hex) : {input1}")
+    print(f"Input 2 (Hex) : {input2}")
+    print(f"Binary Diff   : {bin_diff}")
+    print(f"Flipped Bits  : {hamming}\n")
+    
+    # 2. Classical Cryptanalysis (Frequency Analysis)
+    print("--- 2. Frequency Analysis ---")
+    sample_ciphertext = "KHOOR ZRUOG WKLV LV D WHVW"
+    print(f"Analyzing Text: '{sample_ciphertext}'")
+    freqs = perform_frequency_analysis(sample_ciphertext)
+    
+    # Display top 5 most frequent characters
+    print("Top 5 Characters:")
+    for char, count, perc in freqs[:5]:
+        print(f"  Character '{char}': {count} occurrences ({perc:.2f}%)")
+    print()
+        
+    # 3. Linear Cryptanalysis (Statistical Bias)
+    print("--- 3. Statistical Bias ---")
+    # Simulating a biased bitstream (e.g., from a weak pseudo-random generator)
+    bitstream = "11011101111100111011"
+    zeros, ones, bias = measure_statistical_bias(bitstream)
+    print(f"Bitstream Length: {len(bitstream)} bits")
+    print(f"Zeros count     : {zeros}")
+    print(f"Ones count      : {ones}")
+    print(f"Statistical Bias: {bias:+.4f} (Ideal is +0.0000)")
+
+if __name__ == "__main__":
+    main()
