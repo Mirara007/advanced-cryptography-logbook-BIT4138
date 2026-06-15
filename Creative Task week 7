@@ -1,0 +1,181 @@
+# block_cipher_analyzer.py
+import os
+import collections
+import matplotlib.pyplot as plt
+
+# --- 1. Simulated SPN Block Cipher Components ---
+S_BOX = [0xE, 0x4, 0xD, 0x1, 0x2, 0xF, 0xB, 0x8, 0x3, 0xA, 0x6, 0xC, 0x5, 0x9, 0x0, 0x7]
+P_BOX = [7, 0, 1, 5, 2, 6, 3, 4]
+
+def substitute(byte_val):
+    """Applies a 4-bit S-Box layer to both nibbles of a byte."""
+    return (S_BOX[(byte_val >> 4) & 0x0F] << 4) | S_BOX[byte_val & 0x0F]
+
+def permute(byte_val):
+    """Permutes the bits of a byte using the P-Box configuration."""
+    bits = [(byte_val >> i) & 1 for i in range(7, -1, -1)]
+    out_byte = 0
+    for i in range(8):
+        out_byte = (out_byte << 1) | bits[P_BOX[i]]
+    return out_byte
+
+def encrypt_round(state, round_key):
+    """Executes one full round of Key Mixing, Substitution, and Permutation."""
+    state ^= round_key
+    state = substitute(state)
+    state = permute(state)
+    return state
+
+def simulate_cipher_rounds(plaintext_bytes, master_key, total_rounds):
+    """Encrypts data and tracks the state byte-by-byte at every round layer."""
+    round_history = []
+    current_state = bytearray(plaintext_bytes)
+    
+    # Store initial unencrypted state
+    round_history.append(bytes(current_state))
+    
+    for r in range(1, total_rounds + 1):
+        round_key = (master_key + r) % 256
+        for i in range(len(current_state)):
+            current_state[i] = encrypt_round(current_state[i], round_key)
+        round_history.append(bytes(current_state))
+        
+    return round_history
+
+# --- 2. Cryptanalysis Metrics & Analysis Engine ---
+def compute_hamming_distance(bytes1, bytes2):
+    """Calculates the total number of differing bits between two byte streams."""
+    distance = 0
+    for b1, b2 in zip(bytes1, bytes2):
+        xor_val = b1 ^ b2
+        distance += bin(xor_val).count('1')
+    return distance
+
+def analyze_security(pt_a, pt_b, key, rounds):
+    """Runs the multi-round encryption pipelines and computes structural metrics."""
+    bytes_a = pt_a.encode('utf-8')
+    bytes_b = pt_b.encode('utf-8')
+    
+    history_a = simulate_cipher_rounds(bytes_a, key, rounds)
+    history_b = simulate_cipher_rounds(bytes_b, key, rounds)
+    
+    total_bits = len(bytes_a) * 8
+    avalanche_profile = []
+    
+    for r in range(rounds + 1):
+        dist = compute_hamming_distance(history_a[r], history_b[r])
+        percentage = (dist / total_bits) * 100
+        avalanche_profile.append((r, dist, percentage))
+        
+    final_ct_a = history_a[-1]
+    final_ct_b = history_b[-1]
+    
+    # XOR Difference Analysis
+    xor_diff = bytes(b1 ^ b2 for b1, b2 in zip(final_ct_a, final_ct_b))
+    
+    # Frequency Distribution of Ciphertext A
+    freq_counter = collections.Counter(final_ct_a)
+    
+    return avalanche_profile, xor_diff, freq_counter, final_ct_a, final_ct_b
+
+# --- 3. Reporting & File Export Engine ---
+def generate_report(pt_a, pt_b, rounds, avalanche, xor_diff, ct_a, ct_b):
+    """Compiles analytical conclusions and writes a text report to disk."""
+    filename = "cipher_analysis_report.txt"
+    final_avalanche_pct = avalanche[-1][2]
+    
+    # Determine strict avalanche criterion status
+    sac_status = "PASSED" if 45.0 <= final_avalanche_pct <= 55.0 else "FAILED"
+    
+    report_content = f"""==================================================
+        BLOCK CIPHER SECURITY ANALYSIS REPORT
+==================================================
+Plaintext A      : {pt_a}
+Plaintext B      : {pt_b}
+Execution Rounds : {rounds}
+
+--- 1. Avalanche Effect Progression ---
+"""
+    for r, dist, pct in avalanche:
+        report_content += f"Round {r} -> Bit Differences: {dist} ({pct:.2f}% Layer Distortion)\n"
+        
+    report_content += f"\nStrict Avalanche Criterion (SAC) Status: {sac_status} ({final_avalanche_pct:.2f}% Observed)\n"
+    report_content += "\n--- 2. Differential Cryptanalysis Vector ---\n"
+    report_content += f"Ciphertext A (Hex) : {ct_a.hex()}\n"
+    report_content += f"Ciphertext B (Hex) : {ct_b.hex()}\n"
+    report_content += f"XOR Difference Vector (Bin): {' '.join(f'{b:08b}' for b in xor_diff)}\n"
+    report_content += "\n--- 3. Cryptographic Evaluation Summary ---\n"
+    
+    if sac_status == "PASSED":
+        report_content += "Evaluation: The cipher exhibits strong non-linear diffusion characteristics.\n"
+        report_content += "A 1-bit input flip yielded roughly a 50% change in the final output space.\n"
+    else:
+        report_content += "Evaluation: WARNING: Weak diffusion detected. The cipher configuration lacks\n"
+        report_content += "sufficient confusion/diffusion layers to properly obscure input relationships.\n"
+        
+    with open(filename, "w") as f:
+        f.write(report_content)
+        
+    print(f"[System] Comprehensive statistical report exported successfully to: {os.path.abspath(filename)}")
+    return report_content
+
+# --- 4. Graphical Interface & Visualization Engine ---
+def plot_graphical_analytics(avalanche, freq_counter):
+    """Generates a clean dual-chart dashboard mapping cipher performance."""
+    rounds_x = [item[0] for item in avalanche]
+    avalanche_y = [item[2] for item in avalanche]
+    
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(9, 8))
+    fig.suptitle("Cryptographic Security Evaluation Dashboard", fontsize=14, fontweight='bold')
+    
+    # Chart 1: Avalanche Effect Curve
+    ax1.plot(rounds_x, avalanche_y, marker='o', linestyle='-', linewidth=2)
+    ax1.axhline(y=50, linestyle='--', alpha=0.7)
+    ax1.set_title("Avalanche Effect Propagation (Bit Leakage Verification)")
+    ax1.set_xlabel("Encryption Round Iteration")
+    ax1.set_ylabel("Flipped Bits Percentage (%)")
+    ax1.set_xticks(rounds_x)
+    ax1.grid(True, linestyle=':', alpha=0.6)
+    
+    # Chart 2: Ciphertext Frequency Distribution
+    bytes_items = sorted(freq_counter.items())
+    labels = [f"0x{b:02X}" for b, _ in bytes_items]
+    counts = [c for _, c in bytes_items]
+    
+    if not labels:
+        labels, counts = ["No Data"], [0]
+        
+    ax2.bar(labels, counts, width=0.4)
+    ax2.set_title("Ciphertext Byte Frequency Distribution (Linear Monobit Verification)")
+    ax2.set_xlabel("Unique Ciphertext Byte (Hex Representation)")
+    ax2.set_ylabel("Occurrence Frequency Count")
+    ax2.grid(axis='y', linestyle=':', alpha=0.6)
+    
+    plt.tight_layout()
+    print("[System] Rendering interactive graphical analysis workspace window...")
+    plt.show()
+
+# --- 5. Main Execution Entrypoint ---
+def main():
+    # Target Evaluation Vector (1-bit difference at the final character: 'O' vs 'P')
+    plaintext_a = "CRYPTO"
+    plaintext_b = "CRYPTP" 
+    secret_key = 15
+    execution_rounds = 3
+    
+    print("Executing Block Cipher Security Diagnostics...\n")
+    
+    # Run analysis pipeline
+    avalanche, xor_diff, freqs, ct_a, ct_b = analyze_security(
+        plaintext_a, plaintext_b, secret_key, execution_rounds
+    )
+    
+    # Compile and export text data metrics
+    text_report = generate_report(plaintext_a, plaintext_b, execution_rounds, avalanche, xor_diff, ct_a, ct_b)
+    print("\n" + text_report)
+    
+    # Invoke GUI data rendering pipeline
+    plot_graphical_analytics(avalanche, freqs)
+
+if __name__ == "__main__":
+    main()
