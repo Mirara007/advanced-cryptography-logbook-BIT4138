@@ -1,0 +1,101 @@
+# mini_aes_terminal.py
+
+# --- 1. Cryptographic Configuration ---
+S_BOX = [0xE, 0x4, 0xD, 0x1, 0x2, 0xF, 0xB, 0x8, 0x3, 0xA, 0x6, 0xC, 0x5, 0x9, 0x0, 0x7]
+
+# Generate Inverse S-Box dynamically for Decryption
+INV_S_BOX = [0] * 16
+for i, val in enumerate(S_BOX): 
+    INV_S_BOX[val] = i
+
+P_BOX = [7, 0, 1, 5, 2, 6, 3, 4]
+
+# Generate Inverse P-Box dynamically for Decryption
+INV_P_BOX = [0] * 8
+for i, pos in enumerate(P_BOX): 
+    INV_P_BOX[pos] = i
+
+# --- 2. Cryptographic Core Functions ---
+def substitute(byte_val, box):
+    """Applies the S-Box to both halves of the byte."""
+    return (box[(byte_val >> 4) & 0x0F] << 4) | box[byte_val & 0x0F]
+
+def permute(byte_val, box):
+    """Rearranges the bits according to the P-Box."""
+    bits = [(byte_val >> i) & 1 for i in range(7, -1, -1)]
+    out_byte = 0
+    for i in range(8):
+        out_byte = (out_byte << 1) | bits[box[i]]
+    return out_byte
+
+# --- 3. Main Interactive Execution ---
+def main():
+    print("\n=== Mini AES-Inspired Terminal Simulator ===")
+    
+    # Get Mode
+    mode = input("Select mode (E for Encrypt, D for Decrypt): ").strip().upper()
+    if mode not in ['E', 'D']:
+        print("Error: Invalid mode. Please run again and select E or D.")
+        return
+        
+    # Get Data
+    data_input = input("Enter data (Text for Encrypt, Hex for Decrypt): ").strip()
+    
+    # Get Key and Rounds
+    try:
+        start_key = int(input("Enter secret key (0-255): ")) % 256
+        rounds = int(input("Enter number of rounds (1-5): "))
+    except ValueError:
+        print("Error: Key and Rounds must be numbers.")
+        return
+
+    # Process Input format
+    if mode == 'E':
+        data_bytes = data_input.encode('utf-8')
+        print("\n--- ENCRYPTION PIPELINE ---")
+    else:
+        try:
+            data_bytes = bytes.fromhex(data_input)
+            print("\n--- DECRYPTION PIPELINE ---")
+        except ValueError:
+            print("Error: Decryption requires a valid Hex string (e.g., a4b2).")
+            return
+
+    output_bytes = bytearray()
+    
+    # Execute the SPN logic
+    for i, byte in enumerate(data_bytes):
+        state = byte
+        print(f"\nProcessing Byte {i+1}: '{chr(byte) if mode=='E' else hex(byte)}'")
+        
+        for r in range(rounds):
+            round_num = r + 1 if mode == 'E' else rounds - r
+            round_key = (start_key + round_num) % 256
+            print(f"  ROUND {round_num}")
+            
+            if mode == 'E':
+                state ^= round_key
+                print(f"    Key Mixing (XOR) : {hex(state)}")
+                state = substitute(state, S_BOX)
+                print(f"    Substitution     : {hex(state)}")
+                state = permute(state, P_BOX)
+                print(f"    Permutation      : {hex(state)}")
+            else:
+                state = permute(state, INV_P_BOX)
+                print(f"    Inv Permutation  : {hex(state)}")
+                state = substitute(state, INV_S_BOX)
+                print(f"    Inv Substitution : {hex(state)}")
+                state ^= round_key
+                print(f"    Key Mixing (XOR) : {hex(state)}")
+                
+        output_bytes.append(state)
+
+    # Final Output Display
+    print("\n=== FINAL OUTPUT ===")
+    if mode == 'E':
+        print(f"Ciphertext (Hex): {output_bytes.hex()}")
+    else:
+        print(f"Recovered Text  : {output_bytes.decode('utf-8', errors='replace')}")
+
+if __name__ == "__main__":
+    main()
