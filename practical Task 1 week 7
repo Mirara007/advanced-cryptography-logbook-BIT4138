@@ -1,0 +1,50 @@
+# differential_simulation.py
+
+# A standard 4-bit S-Box for our simulation
+S_BOX = [0xE, 0x4, 0xD, 0x1, 0x2, 0xF, 0xB, 0x8, 0x3, 0xA, 0x6, 0xC, 0x5, 0x9, 0x0, 0x7]
+
+def substitute(val):
+    """Passes a 4-bit value through the S-Box."""
+    return S_BOX[val]
+
+def compute_difference(val1, val2):
+    """Computes the XOR difference between two binary values."""
+    return val1 ^ val2
+
+def main():
+    print("=== Differential Cryptanalysis Simulation ===")
+    
+    # 1. Accept two plaintext inputs
+    try:
+        pt1 = int(input("Enter Plaintext 1 (Decimal 0 to 15): "))
+        pt2 = int(input("Enter Plaintext 2 (Decimal 0 to 15): "))
+    except ValueError:
+        print("Error: Please enter valid numbers.")
+        return
+
+    # Ensure inputs fit within our 4-bit limit (0-15)
+    pt1 = pt1 % 16
+    pt2 = pt2 % 16
+
+    # 2. Compute the initial difference (Input XOR)
+    input_diff = compute_difference(pt1, pt2)
+    
+    # Pass both plaintexts through the Substitution Box
+    ct1 = substitute(pt1)
+    ct2 = substitute(pt2)
+    
+    # 3. Compute the final difference (Output XOR)
+    output_diff = compute_difference(ct1, ct2)
+    
+    # 4. Display observations
+    print("\n--- Observations ---")
+    print(f"Plaintext 1 : {pt1:04b} (Decimal: {pt1})")
+    print(f"Plaintext 2 : {pt2:04b} (Decimal: {pt2})")
+    print(f"Input Diff  : {input_diff:04b} (XOR of Plaintexts)")
+    print("-" * 40)
+    print(f"Ciphertext 1: {ct1:04b} (Decimal: {ct1})")
+    print(f"Ciphertext 2: {ct2:04b} (Decimal: {ct2})")
+    print(f"Output Diff : {output_diff:04b} (XOR of Ciphertexts)")
+
+if __name__ == "__main__":
+    main()
