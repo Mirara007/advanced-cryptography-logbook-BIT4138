@@ -1,0 +1,79 @@
+# spn.py
+# A simple 8-bit Substitution-Permutation Network (SPN)
+
+# 1. Define a 4-bit S-Box (Substitution)
+# Maps an input nibble (0-15) to a new output nibble
+S_BOX = [0xE, 0x4, 0xD, 0x1, 0x2, 0xF, 0xB, 0x8, 0x3, 0xA, 0x6, 0xC, 0x5, 0x9, 0x0, 0x7]
+
+# 2. Define an 8-bit P-Box (Permutation)
+# Specifies the new index positions for the 8 bits
+P_BOX = [2, 6, 3, 1, 4, 0, 7, 5]
+
+def substitute(byte_val):
+    """Applies the S-box to a single byte."""
+    # Split the 8-bit byte into two 4-bit nibbles
+    high_nibble = (byte_val >> 4) & 0x0F
+    low_nibble = byte_val & 0x0F
+    
+    # Substitute using the lookup table
+    sub_high = S_BOX[high_nibble]
+    sub_low = S_BOX[low_nibble]
+    
+    # Recombine into an 8-bit byte
+    return (sub_high << 4) | sub_low
+
+def permute(byte_val):
+    """Applies the P-box to rearrange the bits of a byte."""
+    # Convert byte to a list of exactly 8 bits
+    bits = [(byte_val >> i) & 1 for i in range(7, -1, -1)]
+    
+    # Rearrange bits according to P-BOX
+    permuted_bits = [0] * 8
+    for i in range(8):
+        permuted_bits[i] = bits[P_BOX[i]]
+        
+    # Convert the list of bits back to an integer byte
+    out_byte = 0
+    for bit in permuted_bits:
+        out_byte = (out_byte << 1) | bit
+        
+    return out_byte
+
+def encrypt_spn(plaintext):
+    """Passes the plaintext through the SPN."""
+    ciphertext = bytearray()
+    print("\n--- Step-by-Step Execution ---")
+    
+    for char in plaintext:
+        # Get ASCII integer value of the character
+        byte_val = ord(char)
+        
+        # Step A: Substitution
+        sub_byte = substitute(byte_val)
+        
+        # Step B: Permutation
+        perm_byte = permute(sub_byte)
+        
+        # Append to final ciphertext
+        ciphertext.append(perm_byte)
+        
+        # Print the binary transformation for visibility
+        binary_original = bin(byte_val)[2:].zfill(8)
+        binary_sub = bin(sub_byte)[2:].zfill(8)
+        binary_perm = bin(perm_byte)[2:].zfill(8)
+        
+        print(f"Char: '{char}' ({binary_original}) -> Sub: {binary_sub} -> Perm: {binary_perm} (Hex: {hex(perm_byte)})")
+        
+    return ciphertext
+
+if __name__ == "__main__":
+    # Requirement: User enters plaintext
+    user_input = input("Enter plaintext to encrypt: ")
+    
+    # Execute the SPN
+    encrypted_data = encrypt_spn(user_input)
+    
+    # Requirement: Display ciphertext
+    print("\n--- Final Ciphertext ---")
+    print(f"Raw Bytes : {bytes(encrypted_data)}")
+    print(f"Hex String: {encrypted_data.hex()}")
